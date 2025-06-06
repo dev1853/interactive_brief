@@ -21,6 +21,7 @@ const QuestionEditor = ({ question, onUpdate, onDelete }) => {
 
   const showOptions = ['single_choice', 'multi_choice', 'linear_scale'].includes(question.question_type);
 
+  // Оставим handleInputChange только для простых полей (text, question_type, is_required)
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     onUpdate({
@@ -28,6 +29,24 @@ const QuestionEditor = ({ question, onUpdate, onDelete }) => {
       [name]: type === 'checkbox' ? checked : value,
     });
   };
+
+  // НОВЫЙ обработчик специально для поля options (textarea)
+  const handleOptionsChange = (e) => {
+    const value = e.target.value;
+    // Разбиваем строку по переносу строки, удаляем пробелы и пустые строки
+    let newOptions = value.split('\n').filter(option => option.trim() !== '');
+    
+    // Если после фильтрации массив пуст, устанавливаем null
+    if (newOptions.length === 0) {
+      newOptions = null;
+    }
+
+    onUpdate({
+      ...question,
+      options: newOptions,
+    });
+  };
+
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-start gap-4">
@@ -52,8 +71,8 @@ const QuestionEditor = ({ question, onUpdate, onDelete }) => {
           <input
             type="text"
             name="text"
-            value={question.text}
-            onChange={handleInputChange}
+            value={question.text || ''} // Убедимся, что text всегда строка
+            onChange={handleInputChange} // Используем общий обработчик
             className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             placeholder="Введите текст вопроса"
           />
@@ -77,7 +96,17 @@ const QuestionEditor = ({ question, onUpdate, onDelete }) => {
         {showOptions && (
             <div>
                 <label className="block text-sm font-medium text-slate-700">Варианты ответа (каждый с новой строки)</label>
-                <textarea name="options" value={question.options} onChange={handleInputChange} rows="4" className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" placeholder={"Вариант 1\nВариант 2\nВариант 3"} />
+                {/* console.log('Значение options для textarea:', question.options, 'Преобразованное:', Array.isArray(question.options) ? question.options.join('\n') : '') */}
+                <textarea
+                    name="options"
+                    value={Array.isArray(question.options) ? question.options.join('\n') : ''}
+                    onChange={
+                      handleOptionsChange
+                    } // Используем НОВЫЙ обработчик для options
+                    rows="4"
+                    className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder={"Вариант 1\nВариант 2\nВариант 3"}
+                />
             </div>
         )}
       </div>

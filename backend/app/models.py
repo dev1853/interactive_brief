@@ -10,10 +10,9 @@ class Step(Base):
     title = Column(String, nullable=False, default="Новый шаг")
     order = Column(Integer, nullable=False)
     brief_id = Column(Integer, ForeignKey("briefs.id"), nullable=False)
-    # Исправлено 'back_pop_ulates' на 'back_populates'
-    brief = relationship("Brief", back_populates="steps") 
-    # Исправлено 'back_pop_ulates' на 'back_populates'
+    brief = relationship("Brief", back_populates="steps")
     questions = relationship("Question", back_populates="step", cascade="all, delete-orphan", order_by="Question.order")
+    conditional_logic = Column(JSON, nullable=True) # ЭТО НОВОЕ ПОЛЕ
 
 class Brief(Base):
     __tablename__ = "briefs"

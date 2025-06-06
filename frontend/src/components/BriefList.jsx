@@ -6,16 +6,20 @@ import { getAllBriefs, deleteBriefById } from '../api/client';
 import { FileText, Trash2, Edit, PlusCircle, BarChart2 } from 'lucide-react';
 
 const BriefList = () => {
-  // ... (логика компонента остается без изменений) ...
   const [briefs, setBriefs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchBriefs = async () => {
       setIsLoading(true);
-      const briefsData = await getAllBriefs();
-      setBriefs(briefsData);
-      setIsLoading(false);
+      try {
+        const briefsData = await getAllBriefs();
+        setBriefs(briefsData);
+      } catch (error) {
+        alert(`Не удалось загрузить брифы: ${error.message}`);
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchBriefs();
   }, []);
@@ -39,31 +43,38 @@ const BriefList = () => {
     );
   }
 
+  if (briefs.length === 0) {
+    return (
+      <div className="text-center p-10">
+        <p className="text-slate-500 text-lg mb-4">Брифов пока нет. Создайте первый!</p>
+        <Link 
+          to="/create-brief" 
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-white font-semibold bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm"
+        >
+          <PlusCircle size={20} />
+          Создать новый бриф
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <div className="w-full max-w-4xl mx-auto py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold text-slate-900">Доступные брифы</h1>
+        <h1 className="text-4xl font-bold text-slate-900">Мои брифы</h1>
         <Link 
-            to="/create-brief"
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-sm hover:bg-indigo-700 transition-all"
+          to="/create-brief" 
+          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
         >
-            <PlusCircle size={20} />
-            Создать бриф
+          <PlusCircle size={20} />
+          Создать бриф
         </Link>
       </div>
 
-      {briefs.length === 0 ? (
-        <div className="text-center p-10 border-2 border-dashed border-slate-300 rounded-lg">
-            <p className="text-slate-500 text-lg">Брифы не найдены.</p>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {briefs.map((brief) => (
-            <div
-              key={brief.id}
-              className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 flex items-start gap-6"
-            >
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <ul className="divide-y divide-slate-200">
+          {briefs.map(brief => (
+            <li key={brief.id} className="py-4 flex items-center gap-4">
               <div className="flex-shrink-0 h-12 w-12 bg-slate-50 rounded-lg flex items-center justify-center">
                 <FileText className="text-indigo-600" size={24} />
               </div>
@@ -81,14 +92,14 @@ const BriefList = () => {
                 <Link to={`/briefs/${brief.id}/edit`} title="Редактировать" className="p-2 text-slate-500 hover:text-indigo-600 transition-colors rounded-md hover:bg-slate-100">
                 <Edit size={20} />
                 </Link>
-                <button onClick={() => handleDelete(brief.id, brief.title)} title="Удалить" className="p-2 text-slate-500 hover:text-red-600 transition-colors rounded-md hover:bg-red-50">
-                <Trash2 size={20} />
+                <button onClick={() => handleDelete(brief.id, brief.title)} title="Удалить" className="p-2 text-slate-500 hover:text-red-600 transition-colors rounded-md hover:bg-red-100">
+                  <Trash2 size={20} />
                 </button>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
-      )}
+        </ul>
+      </div>
     </div>
   );
 };

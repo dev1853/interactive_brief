@@ -27,7 +27,6 @@ const TextQuestion = ({ question, onAnswerChange, currentAnswer }) => {
       );
     }
 
-    // Для типа 'text'
     return (
       <textarea
         id={`question_${id}`}
@@ -41,7 +40,6 @@ const TextQuestion = ({ question, onAnswerChange, currentAnswer }) => {
   };
   
   return (
-    // Мы добавили обертку и заголовок-лейбл
     <div>
       <label htmlFor={`question_${id}`} className="text-xl font-semibold text-slate-900">
         {text}

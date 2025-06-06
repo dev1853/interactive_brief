@@ -30,7 +30,7 @@ const ResultsPage = () => {
           setSelectedSubmission(answersData[0]);
         }
       } catch (err) {
-        setError("Не удалось загрузить данные. Пожалуйста, попробуйте снова.");
+        setError(`Не удалось загрузить данные: ${err.message}`);
       } finally {
         setIsLoading(false);
       }
@@ -43,15 +43,12 @@ const ResultsPage = () => {
   if (!brief) return <div className="text-center p-10 text-slate-500">Бриф не найден.</div>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-4xl font-bold text-slate-900 mb-2">Результаты по брифу:</h1>
-        <p className="text-xl text-slate-600">{brief.title}</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-8 items-start">
+    <div className="w-full max-w-6xl mx-auto py-8">
+      <h1 className="text-4xl font-bold text-slate-900 mb-8 text-center">Результаты брифа: {brief.title}</h1>
+      
+      <div className="grid md:grid-cols-3 gap-6">
         {/* Левая колонка: список сессий */}
-        <aside className="md:col-span-1 lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <aside className="md:col-span-1 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="font-bold text-lg px-2 pb-2 border-b border-slate-200">
             Сессии ({submissions.length})
           </h3>
@@ -82,7 +79,13 @@ const ResultsPage = () => {
 
         {/* Правая колонка: детали выбранной сессии */}
         <main className="md:col-span-2 lg:col-span-3">
-          <SubmissionDetail brief={brief} submission={selectedSubmission} />
+          {selectedSubmission ? (
+            <SubmissionDetail brief={brief} submission={selectedSubmission} />
+          ) : (
+            <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm text-center text-slate-500">
+              Выберите сессию из списка, чтобы просмотреть детали.
+            </div>
+          )}
         </main>
       </div>
     </div>

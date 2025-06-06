@@ -13,6 +13,7 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
       <header className="bg-white shadow-sm border-b border-slate-200">
+        {/* Можно добавить навигацию здесь, если нужно */}
       </header>
       <main className="container mx-auto p-6">
         <Routes>

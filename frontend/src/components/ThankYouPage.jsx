@@ -29,8 +29,8 @@ const ThankYouPage = () => {
       )}
 
       <div className="mt-12">
-        <Link to="/" className="inline-flex items-center gap-2 text-slate-600 hover:text-indigo-600">
-          <Home size={16} />
+        <Link to="/" className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all shadow-sm">
+          <Home size={20} />
           Вернуться на главную
         </Link>
       </div>
