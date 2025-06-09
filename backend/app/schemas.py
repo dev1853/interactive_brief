@@ -1,111 +1,93 @@
-# app/schemas.py
-from typing import List, Optional, Dict, Any
+# backend/app/schemas.py
+from __future__ import annotations
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
-from pydantic import BaseModel, Field, EmailStr
 
-# --- User Schemas (НОВЫЕ) ---
-class UserBase(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50, description="Имя пользователя")
-    email: EmailStr = Field(..., description="Адрес электронной почты")
-
-class UserCreate(UserBase):
-    password: str = Field(..., min_length=6, description="Пароль пользователя")
-
-class UserInDB(UserBase):
-    id: int
-    hashed_password: str
-    is_active: bool = True
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        orm_mode = True # Позволяет ORM модели быть совместимой с Pydantic
-
-class UserResponse(UserBase):
-    id: int
-    is_active: bool
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        orm_mode = True
-
-# Схема для JWT токена
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-# --- Question Schemas ---
+# --- Вопросы ---
 class QuestionBase(BaseModel):
-    text: str = Field(..., description="Текст вопроса")
-    question_type: str = Field(..., description="Тип вопроса")
+    text: str
+    question_type: str
     options: Optional[List[str]] = None
     is_required: bool = False
-    order: int
-    conditional_logic: Optional[Dict[str, Any]] = None
+    config: Optional[Dict[str, Any]] = None
 
 class QuestionCreate(QuestionBase):
     pass
 
-class QuestionInDB(QuestionBase):
+class Question(QuestionBase):
     id: int
-    step_id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
     class Config:
         orm_mode = True
 
-# --- Step Schemas ---
+# --- Шаги ---
 class StepBase(BaseModel):
     title: str
-    order: int
-    conditional_logic: Optional[Dict[str, Any]] = None
+    description: Optional[str] = None
 
 class StepCreate(StepBase):
-    questions: Optional[List[QuestionCreate]] = []
+    questions: List[QuestionCreate] = []
 
-class StepResponse(StepBase):
+class Step(StepBase):
     id: int
-    questions: List[QuestionInDB] = []
+    questions: List[Question] = []
     class Config:
         orm_mode = True
 
-# --- Brief Schemas ---
+# --- Брифы ---
 class BriefBase(BaseModel):
-    title: str = Field(..., description="Название брифа")
+    title: str
     description: Optional[str] = None
 
 class BriefCreate(BriefBase):
-    steps: Optional[List[StepCreate]] = [] # Теперь бриф принимает шаги
+    steps: List[StepCreate] = []
 
-class BriefUpdate(BriefCreate): # Теперь обновление тоже может менять всю структуру
-    pass
-
-class BriefResponse(BriefBase):
+class Brief(BriefBase):
     id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    steps: List[StepResponse] = [] # И возвращает шаги
+    owner_id: int
+    is_main: bool
+    steps: List[Step] = []
     class Config:
         orm_mode = True
-
-# --- UserAnswer Schemas ---
-class UserAnswerData(BaseModel):
-    answers_data: Dict[str, Any]
-
-class UserAnswerCreate(UserAnswerData):
+        
+# --- Ответы ---
+class SubmissionBase(BaseModel):
     brief_id: int
-    session_id: str
 
-class UserAnswerResponse(UserAnswerCreate):
+class SubmissionCreate(SubmissionBase):
+    answers: Dict[str, Any]
+
+class Submission(SubmissionBase):
     id: int
-    submitted_at: datetime
+    session_id: str
+    created_at: datetime
+    answers_data: Dict[str, Any]
+    brief: Brief # Включаем полный бриф в ответ
     class Config:
         orm_mode = True
 
-# --- Вспомогательные схемы ---
-class MessageResponse(BaseModel):
-    message: str
+# --- Пользователи ---
+class UserBase(BaseModel):
+    email: str
+    username: str
 
-class FileUploadResponse(BaseModel):
-    file_path: str
+class UserCreate(UserBase):
+    password: str
+
+class User(UserBase):
+    id: int
+    is_active: bool
+    briefs: List[Brief] = []
+    class Config:
+        orm_mode = True
+
+# --- Токены ---
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
+# Обновление ссылок для вложенных схем
+User.update_forward_refs()

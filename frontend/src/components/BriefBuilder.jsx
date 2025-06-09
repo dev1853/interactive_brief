@@ -2,11 +2,12 @@
 
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createBrief } from '../api/client';
 import StepEditor from './builder/StepEditor';
 import { PlusCircle } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+
+import { createBrief } from '../api/client'
 
 const BriefBuilder = () => {
   const navigate = useNavigate();
@@ -137,8 +138,9 @@ const BriefBuilder = () => {
       })),
     };
     try {
-      const createdBrief = await createBrief(briefData);
-      navigate(`/briefs/${createdBrief.id}/edit`); 
+      const response = await createBrief(briefData);
+      // ИСПРАВЛЕНИЕ: Перенаправляем на страницу редактирования в админке
+      navigate(`/admin/edit/${response.data.id}`); 
     } catch (error) {
       console.error('Ошибка при создании брифа:', error);
       alert(`Не удалось создать бриф: ${error.message}`);

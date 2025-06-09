@@ -1,126 +1,101 @@
 // frontend/src/components/SubmissionDetail.jsx
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { getSubmissionById } from '../api/client';
+import { ArrowLeftIcon, PaperClipIcon } from '@heroicons/react/24/solid';
 
-import React from 'react';
-import { File as FileIcon, CheckSquare, MousePointerClick } from 'lucide-react';
+const SubmissionDetail = () => {
+  const { id: sessionId } = useParams();
+  const [submission, setSubmission] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-const FormatAnswer = ({ answer }) => {
-  if (answer === null || answer === undefined || answer === '') {
-    return <span className="text-slate-400 italic">Ответ не дан</span>;
-  }
-  if (Array.isArray(answer)) {
-    return (
-      <ul className="space-y-2 list-none p-0 ml-0">
-        {answer.map((item, index) => (
-          <li key={index} className="flex items-center gap-2">
-            {item.path ? (
-              <><FileIcon size={16} className="text-slate-500" /> <a href={`http://localhost:8001${item.path}`} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">{item.name}</a></>
-            ) : (
-              <><CheckSquare size={16} className="text-green-600" /> <span>{String(item)}</span></>
-            )}
-          </li>
-        ))}
-      </ul>
-    );
-  }
-  if (typeof answer === 'string' && (answer.startsWith('http') || answer.startsWith('/uploads'))) {
-     const url = answer.startsWith('/') ? `http://localhost:8001${answer}` : answer;
-     return <a href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">{answer}</a>;
-  }
-  return <p className="whitespace-pre-wrap">{String(answer)}</p>;
-};
+  useEffect(() => {
+    const fetchSubmission = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const response = await getSubmissionById(sessionId);
+        setSubmission(response.data);
+      } catch (err) {
+        setError('Не удалось загрузить данные ответа.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubmission();
+  }, [sessionId]);
 
-const SubmissionDetail = ({ brief, submission }) => {
-  if (!brief || !submission) {
-    return <div className="text-center text-slate-500 p-8">Выберите сессию для просмотра деталей.</div>;
+  const renderAnswer = (value) => {
+    if (Array.isArray(value)) {
+      return (
+        <ul className="list-disc list-inside space-y-1">
+          {value.map((item, index) => (
+            <li key={index}>
+              {item && item.url ? (
+                <a href={`http://localhost:8001${item.url}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-indigo-600 hover:text-indigo-800">
+                  <PaperClipIcon className="h-4 w-4 mr-1"/> {item.name || 'файл'}
+                </a>
+              ) : (
+                String(item)
+              )}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    return <p className="mt-1 text-md text-gray-900 sm:col-span-2 sm:mt-0 whitespace-pre-wrap">{String(value)}</p>;
+  };
+  
+  if (loading) return <div className="text-center p-8">Загрузка деталей ответа...</div>;
+  if (error) return <div className="p-4 bg-red-100 text-red-700 rounded-md">{error}</div>;
+  
+  if (!submission || !submission.brief) {
+    return <div className="p-8 text-center text-gray-500">Данные для этого ответа неполные или отсутствуют.</div>;
   }
 
-  // Создаем плоский список всех вопросов из брифа для удобного доступа
-  const allQuestions = brief.steps
-    .flatMap(step => step.questions.map(q => ({ ...q, stepTitle: step.title, stepOrder: step.order })))
-    .sort((a, b) => {
-        const stepA = brief.steps.find(s => s.questions.some(question => question.id === a.id));
-        const stepB = brief.steps.find(s => s.questions.some(question => question.id === b.id));
-        const stepOrderA = stepA ? stepA.order : 0;
-        const stepOrderB = stepB ? stepB.order : 0;
-        if (stepOrderA !== stepOrderB) {
-            return stepOrderA - stepOrderB;
-        }
-        return a.order - b.order;
-    });
+  // Создаем словарь вопросов для быстрого доступа
+  const questionsMap = (submission.brief.steps || []).flatMap(step => step.questions).reduce((acc, q) => {
+    acc[q.id] = q.text;
+    return acc;
+  }, {});
+  
+  // Проверяем, есть ли вообще ответы
+  const hasAnswers = submission.answers_data && Object.keys(submission.answers_data).length > 0;
 
   return (
-    <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
-      <div className="border-b border-slate-200 pb-4 mb-6">
-        <h2 className="text-2xl font-bold text-slate-900">Детали ответа</h2>
-        <p className="text-sm text-slate-500 mt-1">ID сессии: {submission.session_id}</p>
-        <p className="text-sm text-slate-500">Отправлено: {new Date(submission.submitted_at).toLocaleString('ru-RU')}</p>
-      </div>
-      <div className="space-y-6">
-        {allQuestions.map(question => {
-          const answer = submission.answers_data[question.id]; // Ответ может быть undefined
-          
-          // Проверяем conditional_logic вопроса, чтобы определить, должен ли он быть показан
-          // в данном ответе (чтобы результаты соответствовали тому, что видел пользователь)
-          // Для этого нам нужны ВСЕ ответы сессии, а не только текущий
-          // (submission.answers_data содержит все ответы)
-          const isQuestionVisibleByLogic = checkConditionOnSubmission(question.conditional_logic, submission.answers_data);
-
-          // Проверяем также, принадлежит ли вопрос видимому шагу в контексте данного ответа
-          const stepForQuestion = brief.steps.find(s => s.id === question.step_id);
-          const isStepVisibleByLogic = checkConditionOnSubmission(stepForQuestion?.conditional_logic, submission.answers_data);
-
-          // Отображаем вопрос и ответ, только если сам вопрос и его шаг были видимы
-          if (isQuestionVisibleByLogic && isStepVisibleByLogic) {
-            return (
-              <div key={question.id}>
-                <h4 className="font-semibold text-slate-800">
-                  <span className="text-indigo-600 mr-2">{question.stepTitle}:</span> 
-                  {question.text}
-                </h4>
-                <div className="ml-4 text-slate-700">
-                  <FormatAnswer answer={answer} />
+    <div>
+      <Link to={`/admin/results/${submission.brief_id}`} className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900 mb-4">
+        <ArrowLeftIcon className="h-4 w-4" />
+        Назад к списку ответов
+      </Link>
+      
+      <div className="overflow-hidden bg-white shadow sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6">
+          <h3 className="text-lg font-semibold leading-6 text-gray-900">Ответы на бриф "{submission.brief.title}"</h3>
+          <p className="mt-1 max-w-2xl text-sm text-gray-500">ID сессии: {submission.session_id}</p>
+        </div>
+        <div className="border-t border-gray-200">
+          <dl>
+            {/* --- ИСПРАВЛЕНИЕ ЗДЕСЬ --- */}
+            {hasAnswers ? (
+              Object.entries(submission.answers_data).map(([questionId, answer], index) => (
+                <div key={questionId} className={`${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6`}>
+                  <dt className="text-sm font-medium text-gray-500">{questionsMap[questionId] || `Вопрос ID: ${questionId}`}</dt>
+                  <dd className="mt-1 text-sm text-gray-900 sm:col-span-2 sm:mt-0">{renderAnswer(answer)}</dd>
                 </div>
+              ))
+            ) : (
+              <div className="px-4 py-5 text-sm text-gray-500 sm:px-6">
+                Пользователь не предоставил ни одного ответа.
               </div>
-            );
-          }
-          return null; // Не отображаем невидимые вопросы/шаги
-        })}
-      </div>
-       <div className="mt-8 border-t border-slate-200 pt-6">
-          <a
-            href={`http://localhost:8001/submission/${submission.session_id}/pdf`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-white font-semibold bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm"
-          >
-            <FileIcon size={20} />
-            Скачать PDF
-          </a>
+            )}
+          </dl>
+        </div>
       </div>
     </div>
   );
 };
 
 export default SubmissionDetail;
-
-// Вспомогательная функция для проверки условий на основе полных ответов сессии
-// Эта логика дублирует checkCondition из BriefForm, но использует ID как ключи в answers
-const checkConditionOnSubmission = (condition, answers_data) => {
-  if (!condition || !condition.show_if) return true;
-  const { question_id, operator, value } = condition.show_if;
-  const targetAnswer = answers_data[question_id]; // answers_data здесь - это объект с числовыми ключами
-
-  if (targetAnswer === undefined || targetAnswer === null || targetAnswer === '') {
-    return false;
-  }
-
-  switch (operator) {
-    case 'equals': return targetAnswer === value;
-    case 'not_equals': return targetAnswer !== value;
-    case 'contains': return Array.isArray(targetAnswer) && targetAnswer.includes(String(value));
-    case 'not_contains': return Array.isArray(targetAnswer) && !targetAnswer.includes(String(value));
-    case 'greater_than': return Number(targetAnswer) > Number(value);
-    case 'less_than': return Number(targetAnswer) < Number(value);
-    default: return false;
-  }
-};

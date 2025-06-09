@@ -1,7 +1,24 @@
 // frontend/src/api/client.js
+import axios from 'axios';
 
-// --- КОНФИГУРАЦИЯ API ---
-const API_BASE_URL = "http://localhost:8001"; // Убедитесь, что эта строка присутствует
+const client = axios.create({
+  // Теперь все запросы будут идти на тот же домен, 
+  // но с префиксом /api, который перехватит Nginx
+  baseURL: '/api',
+});
+
+// Перехватчик для автоматического добавления токена авторизации
+client.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 
 // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 const handleResponse = async (response) => {
@@ -41,77 +58,52 @@ const handleError = (error) => {
     throw error;
 };
 
-// --- ЭНДПОИНТЫ БРИФОВ ---
+// --- Функции для удобной работы с API ---
 
-export const getAllBriefs = async () => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/briefs/`);
-        return handleResponse(response);
-    } catch (error) {
-        handleError(error);
-    }
+export const loginUser = (email, password) => {
+  const formData = new URLSearchParams();
+  formData.append('username', email);
+  formData.append('password', password);
+  return client.post('/token', formData);
 };
 
-export const getBriefById = async (briefId) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/briefs/${briefId}`);
-        return handleResponse(response);
-    } catch (error) {
-        handleError(error);
-    }
+export const registerUser = (userData) => {
+  return client.post('/users', userData);
 };
 
-export const createBrief = async (briefData) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/briefs/`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(briefData),
-        });
-        return handleResponse(response);
-    } catch (error) {
-        handleError(error);
-    }
+export const getMainBrief = () => {
+  return client.get('/main-brief');
 };
 
-export const updateBrief = async (briefId, briefData) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/briefs/${briefId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(briefData),
-        });
-        return handleResponse(response);
-    } catch (error) {
-        handleError(error);
-    }
+export const getAllBriefs = () => {
+  return client.get('/briefs/');
 };
 
-export const deleteBriefById = async (briefId) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/briefs/${briefId}`, {
-            method: 'DELETE',
-        });
-        if (!response.ok) {
-            let errorDetails = {};
-            try {
-                errorDetails = await response.json();
-            } catch (jsonError) {
-                errorDetails = { detail: await response.text() };
-            }
-            console.error('API Error Response (подробно):', errorDetails);
-            throw new Error(`Ошибка ${response.status}: ${response.statusText}`);
-        }
-        return null;
-    } catch (error) {
-        handleError(error);
-    }
+export const getBriefById = (id) => {
+  return client.get(`/briefs/${id}`);
 };
 
+export const createBrief = (briefData) => {
+  return client.post('/briefs', briefData); // Исправлено: был некорректный вызов
+};
+
+export const updateBrief = (id, briefData) => {
+  return client.put(`/briefs/${id}`, briefData);
+};
+
+export const deleteBrief = (id) => {
+  return client.delete(`/briefs/${id}`);
+};
+
+export const setMainBrief = (id) => {
+  return client.put(`/briefs/${id}/set-main`);
+};
+
+export const createSubmission = (submissionData) => {
+  // Обратите внимание, что эндпоинт на бэкенде может быть /submissions/ или /briefs/submissions/
+  // Убедитесь, что он совпадает с тем, что в routers/briefs.py
+  return client.post('/briefs/submissions', submissionData); 
+};
 
 // --- ЭНДПОИНТЫ ОТВЕТОВ ПОЛЬЗОВАТЕЛЕЙ ---
 
@@ -139,18 +131,27 @@ export const getAnswersForBrief = async (briefId) => {
     }
 };
 
-// --- ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ФАЙЛОВ ---
-export const uploadFile = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/upload`, {
-            method: 'POST',
-            body: formData,
-        });
-        return handleResponse(response);
-    } catch (error) {
-        handleError(error);
-    }
+export const getSubmissionsForBrief = (briefId) => {
+  return client.get(`/briefs/${briefId}/submissions`);
 };
+
+export const getSubmissionById = (sessionId) => {
+  return client.get(`/briefs/submission/${sessionId}`);
+};
+
+// --- ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ФАЙЛОВ ---
+export const uploadFile = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // Используем наш настроенный client и правильный эндпоинт
+  // Убедитесь, что на бэкенде в routers/briefs.py есть эндпоинт /uploadfile
+  return client.post('/briefs/uploadfile', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+
+export default client;

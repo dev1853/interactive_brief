@@ -1,104 +1,102 @@
 // frontend/src/components/BriefList.jsx
-
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { getAllBriefs, deleteBriefById } from '../api/client';
-import { FileText, Trash2, Edit, PlusCircle, BarChart2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';import { PlusIcon, PencilIcon, TrashIcon, StarIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import client from '../api/client'; // Предполагаем, что client.js экспортирует по умолчанию
 
 const BriefList = () => {
   const [briefs, setBriefs] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchBriefs = async () => {
+    try {
+      const response = await client.get('/briefs/');
+      setBriefs(response.data);
+    } catch (error) {
+      console.error("Не удалось загрузить брифы:", error);
+    }
+  };
 
   useEffect(() => {
-    const fetchBriefs = async () => {
-      setIsLoading(true);
-      try {
-        const briefsData = await getAllBriefs();
-        setBriefs(briefsData);
-      } catch (error) {
-        alert(`Не удалось загрузить брифы: ${error.message}`);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchBriefs();
   }, []);
 
-  const handleDelete = async (briefId, briefTitle) => {
-    if (window.confirm(`Вы уверены, что хотите удалить бриф "${briefTitle}"? Это действие необратимо.`)) {
+  const handleSetMain = async (briefId) => {
+    try {
+      await client.put(`/briefs/${briefId}/set-main`);
+      fetchBriefs();
+    } catch (error) {
+      console.error("Не удалось назначить бриф главным:", error);
+    }
+  };
+  
+  const handleDelete = async (briefId) => {
+    if (window.confirm('Вы уверены, что хотите удалить этот бриф?')) {
       try {
-        await deleteBriefById(briefId);
-        setBriefs(currentBriefs => currentBriefs.filter(b => b.id !== briefId));
+        await client.delete(`/briefs/${briefId}`);
+        fetchBriefs();
       } catch (error) {
-        alert(`Не удалось удалить бриф: ${error.message}`);
+        console.error("Не удалось удалить бриф:", error);
       }
     }
   };
 
-  if (isLoading) {
-    return (
-        <div className="text-center p-10">
-            <p className="text-slate-500 text-lg">Загрузка брифов...</p>
-        </div>
-    );
-  }
-
-  if (briefs.length === 0) {
-    return (
-      <div className="text-center p-10">
-        <p className="text-slate-500 text-lg mb-4">Брифов пока нет. Создайте первый!</p>
-        <Link 
-          to="/create-brief" 
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-white font-semibold bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <PlusCircle size={20} />
-          Создать новый бриф
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full max-w-4xl mx-auto py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold text-slate-900">Мои брифы</h1>
-        <Link 
-          to="/create-brief" 
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <PlusCircle size={20} />
-          Создать бриф
-        </Link>
+    <div>
+      <div className="sm:flex sm:items-center">
+        <div className="sm:flex-auto">
+          <h1 className="text-xl font-semibold text-gray-900">Мои Брифы</h1>
+          <p className="mt-2 text-sm text-gray-700">Список всех созданных вами брифов.</p>
+        </div>
+        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+          <Link
+            to="/admin/builder"
+            className="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:w-auto"
+          >
+            <PlusIcon className="-ml-1 mr-2 h-5 w-5" />
+            Создать бриф
+          </Link>
+        </div>
       </div>
-
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-        <ul className="divide-y divide-slate-200">
-          {briefs.map(brief => (
-            <li key={brief.id} className="py-4 flex items-center gap-4">
-              <div className="flex-shrink-0 h-12 w-12 bg-slate-50 rounded-lg flex items-center justify-center">
-                <FileText className="text-indigo-600" size={24} />
-              </div>
-              <div className="flex-grow">
-                <h2 className="text-xl font-semibold text-slate-900">{brief.title}</h2>
-                <p className="text-slate-600 mt-1">{brief.description}</p>
-                <Link to={`/brief/${brief.id}`} className="text-indigo-600 font-semibold mt-4 inline-block hover:underline">
-                  Заполнить бриф →
-                </Link>
-              </div>
-              <div className="flex-shrink-0 flex items-center gap-2">
-                <Link to={`/briefs/${brief.id}/results`} title="Посмотреть результаты" className="p-2 text-slate-500 hover:text-indigo-600 transition-colors rounded-md hover:bg-slate-100">
-                    <BarChart2 size={20} />
-                </Link>
-                <Link to={`/briefs/${brief.id}/edit`} title="Редактировать" className="p-2 text-slate-500 hover:text-indigo-600 transition-colors rounded-md hover:bg-slate-100">
-                <Edit size={20} />
-                </Link>
-                <button onClick={() => handleDelete(brief.id, brief.title)} title="Удалить" className="p-2 text-slate-500 hover:text-red-600 transition-colors rounded-md hover:bg-red-100">
-                  <Trash2 size={20} />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
+      
+      <div className="mt-8 flow-root">
+        <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+          <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+            <ul role="list" className="divide-y divide-gray-200">
+              {briefs.map((brief) => (
+                <li key={brief.id} className="flex items-center justify-between gap-x-6 py-5 px-4 bg-white shadow-sm rounded-md mb-2">
+                  <div className="min-w-0">
+                    <div className="flex items-start gap-x-3">
+                      <p className="text-lg font-semibold leading-6 text-gray-900">{brief.title}</p>
+                      {brief.is_main && (
+                         <p className="rounded-md whitespace-nowrap mt-0.5 px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset text-green-700 bg-green-50 ring-green-600/20">
+                           Главный
+                         </p>
+                      )}
+                    </div>
+                     <div className="mt-1 flex items-center gap-x-2 text-xs leading-5 text-gray-500">
+                        <p className="whitespace-nowrap">Создан: {new Date(brief.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-none items-center gap-x-4">
+                    {!brief.is_main && (
+                      <button onClick={() => handleSetMain(brief.id)} className="rounded-md bg-white px-2.5 py-1.5 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">
+                        Сделать главным
+                      </button>
+                    )}
+                    <Link to={`/admin/results/${brief.id}`} className="p-2 text-gray-500 hover:text-indigo-600">
+                      <ChartBarIcon className="h-5 w-5"/>
+                    </Link>
+                    <Link to={`/admin/edit/${brief.id}`} className="p-2 text-gray-500 hover:text-indigo-600">
+                      <PencilIcon className="h-5 w-5"/>
+                    </Link>
+                     <button onClick={() => handleDelete(brief.id)} className="p-2 text-gray-500 hover:text-red-600">
+                        <TrashIcon className="h-5 w-5"/>
+                     </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   );

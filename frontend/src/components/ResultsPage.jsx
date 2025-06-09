@@ -1,93 +1,78 @@
 // frontend/src/components/ResultsPage.jsx
-
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { getBriefById, getAnswersForBrief } from '../api/client';
-import SubmissionDetail from './SubmissionDetail';
+import { useParams, Link } from 'react-router-dom';
+import { getSubmissionsForBrief } from '../api/client';
+import { DocumentTextIcon } from '@heroicons/react/24/outline';
 
 const ResultsPage = () => {
   const { briefId } = useParams();
-  const [brief, setBrief] = useState(null);
   const [submissions, setSubmissions] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedSubmission, setSelectedSubmission] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      setError(null);
+    const fetchSubmissions = async () => {
       try {
-        const [briefData, answersData] = await Promise.all([
-          getBriefById(briefId),
-          getAnswersForBrief(briefId)
-        ]);
-        
-        setBrief(briefData);
-        setSubmissions(answersData);
-
-        if (answersData && answersData.length > 0) {
-          setSelectedSubmission(answersData[0]);
-        }
+        const response = await getSubmissionsForBrief(briefId);
+        setSubmissions(response.data);
       } catch (err) {
-        setError(`Не удалось загрузить данные: ${err.message}`);
+        setError('Не удалось загрузить ответы.');
+        console.error(err);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
-    fetchData();
+    fetchSubmissions();
   }, [briefId]);
 
-  if (isLoading) return <div className="text-center p-10 text-slate-500">Загрузка результатов...</div>;
-  if (error) return <div className="text-center p-10 text-red-500">{error}</div>;
-  if (!brief) return <div className="text-center p-10 text-slate-500">Бриф не найден.</div>;
+  if (loading) return <div className="text-center p-8">Загрузка ответов...</div>;
+  if (error) return <div className="p-4 bg-red-100 text-red-700 rounded-md">{error}</div>;
 
   return (
-    <div className="w-full max-w-6xl mx-auto py-8">
-      <h1 className="text-4xl font-bold text-slate-900 mb-8 text-center">Результаты брифа: {brief.title}</h1>
-      
-      <div className="grid md:grid-cols-3 gap-6">
-        {/* Левая колонка: список сессий */}
-        <aside className="md:col-span-1 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-          <h3 className="font-bold text-lg px-2 pb-2 border-b border-slate-200">
-            Сессии ({submissions.length})
-          </h3>
-          {submissions.length > 0 ? (
-            <ul className="mt-2 space-y-1 max-h-[60vh] overflow-y-auto">
-              {submissions.map(sub => (
-                <li key={sub.id}>
-                  <button
-                    onClick={() => setSelectedSubmission(sub)}
-                    className={`w-full text-left p-2 rounded-md transition-colors text-sm ${
-                      selectedSubmission?.id === sub.id
-                        ? 'bg-indigo-100 text-indigo-700 font-semibold'
-                        : 'hover:bg-slate-100'
-                    }`}
-                  >
-                    <span className="block">ID: ...{sub.session_id.slice(-12)}</span>
-                    <span className="block text-slate-500 text-xs">
-                      {new Date(sub.submitted_at).toLocaleString('ru-RU')}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-slate-500 p-2 mt-2">Ответов пока нет.</p>
-          )}
-        </aside>
-
-        {/* Правая колонка: детали выбранной сессии */}
-        <main className="md:col-span-2 lg:col-span-3">
-          {selectedSubmission ? (
-            <SubmissionDetail brief={brief} submission={selectedSubmission} />
-          ) : (
-            <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm text-center text-slate-500">
-              Выберите сессию из списка, чтобы просмотреть детали.
+    <div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-4">Ответы на бриф</h1>
+      {submissions.length === 0 ? (
+        <p className="text-gray-500">Пока нет ни одного ответа на этот бриф.</p>
+      ) : (
+        <div className="mt-8 flow-root">
+          <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
+            <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+              <table className="min-w-full divide-y divide-gray-300">
+                <thead>
+                  <tr>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">
+                      ID Ответа (Сессия)
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Дата отправки
+                    </th>
+                    <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-0">
+                      <span className="sr-only">Просмотр</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {submissions.map((submission) => (
+                    <tr key={submission.session_id}>
+                      <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-mono text-gray-500 sm:pl-0">
+                        {submission.session_id.split('-')[0]}...
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                        {new Date(submission.created_at).toLocaleString()}
+                      </td>
+                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-0">
+                        <Link to={`/admin/submissions/${submission.session_id}`} className="text-indigo-600 hover:text-indigo-900">
+                          Просмотр<span className="sr-only">, {submission.session_id}</span>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
-        </main>
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

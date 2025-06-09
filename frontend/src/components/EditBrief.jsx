@@ -2,20 +2,23 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getBriefById, updateBrief } from '../api/client';
 import StepEditor from './builder/StepEditor';
 import { PlusCircle } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { getBriefById, updateBrief } from '../api/client';
 
 const EditBrief = () => {
-  const { briefId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
 
+  const [brief, setBrief] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [steps, setSteps] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
+
 
   const allQuestionsInBrief = useMemo(() => {
     const allQ = steps.flatMap(step =>
@@ -33,73 +36,24 @@ const EditBrief = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      setIsLoading(true);
+      setError('');
       try {
-        const data = await getBriefById(briefId);
-        if (data) {
-          setTitle(data.title);
-          setDescription(data.description || '');
-
-          const formattedSteps = data.steps.map(step => ({
-            id: `step_${step.id}`, // Локальный ID для DND
-            title: step.title,
-            order: step.order,
-            conditional_logic: step.conditional_logic ? {
-                show_if: {
-                    // ИЗМЕНЕНИЕ: При загрузке, гарантируем, что question_id будет числом или null
-                    question_id: (() => {
-                        const qid = step.conditional_logic.show_if.question_id;
-                        if (typeof qid === 'number') return qid; // Уже число
-                        if (typeof qid === 'string') {
-                            const parsedId = parseInt(qid, 10);
-                            if (!isNaN(parsedId)) {
-                                return parsedId; // Строка "61" станет числом 61
-                            }
-                        }
-                        // Если это 'q_timestamp' или null/undefined, или не парсится
-                        console.warn(`EditBrief: Conditional logic for step ID ${step.id} has non-numeric question_id: "${qid}". Setting to null.`);
-                        return null; 
-                    })(),
-                    operator: step.conditional_logic.show_if.operator,
-                    value: step.conditional_logic.show_if.value,
-                }
-            } : null,
-            questions: data.steps.find(s => s.id === step.id)?.questions.map(q => ({
-              ...q,
-              id: q.id, // Это реальный ID вопроса из бэкенда (числовой)
-              text: q.text || '',
-              options: Array.isArray(q.options) ? q.options : [],
-              conditional_logic: q.conditional_logic ? {
-                  show_if: {
-                      question_id: (() => {
-                          const qid = q.conditional_logic.show_if.question_id;
-                          if (typeof qid === 'number') return qid;
-                          if (typeof qid === 'string') {
-                              const parsedId = parseInt(qid, 10);
-                              if (!isNaN(parsedId)) {
-                                  return parsedId;
-                              }
-                          }
-                          console.warn(`EditBrief: Conditional logic for question ID ${q.id} has non-numeric question_id: "${qid}". Setting to null.`);
-                          return null;
-                      })(),
-                      operator: q.conditional_logic.show_if.operator,
-                      value: q.conditional_logic.show_if.value,
-                  }
-              } : null,
-            })),
-          }));
-          setSteps(formattedSteps);
-        }
-      } catch (e) {
-        console.error("Ошибка загрузки брифа:", e);
-        alert(`Не удалось загрузить бриф для редактирования: ${e.message}`);
+        // ИСПРАВЛЕНИЕ: Используем нашу новую функцию
+        const response = await getBriefById(id);
+        const data = response.data;
+        setBrief(data);
+        setTitle(data.title);
+        setDescription(data.description || '');
+        setSteps(data.steps || []);
+      } catch (err) {
+        setError('Ошибка загрузки брифа. Возможно, он не существует.');
+        console.error('Ошибка загрузки брифа:', err);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     };
     fetchData();
-  }, [briefId]);
+  }, [id]);
 
   const addStep = () => {
     const newStep = {
@@ -205,17 +159,24 @@ const EditBrief = () => {
         })),
       })),
     };
-    try {
-      await updateBrief(briefId, briefData);
-      alert('Бриф успешно обновлен!');
-      navigate('/');
-    } catch (error) {
-      console.error('Ошибка при обновлении брифа:', error);
-      alert(`Не удалось обновить бриф: ${error.message}`);
+     try {
+      // ИСПРАВЛЕНИЕ: Используем нашу новую функцию для обновления
+      await updateBrief(id, briefData);
+      alert('Бриф успешно сохранен!');
+      navigate('/admin'); // Возвращаемся в список брифов
+    } catch (err) {
+      setError('Не удалось сохранить бриф.');
+      console.error('Ошибка при сохранении брифа:', err);
     }
   };
 
-  if (isLoading) return <div className="text-center p-10 text-slate-500">Загрузка брифа для редактирования...</div>;
+  if (loading) {
+    return <div>Загрузка редактора...</div>;
+  }
+  
+  if (error) {
+    return <div className="p-4 bg-red-100 text-red-700 rounded-md">{error}</div>;
+  }
 
   return (
     <div className="w-full max-w-4xl mx-auto py-8">
