@@ -36,8 +36,11 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    volumes: # <-- ДОБАВЬТЕ ЭТОТ БЛОК
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot
     depends_on:
       - backend
-
+      
 volumes:
   postgres_data:
