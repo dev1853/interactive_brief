@@ -17,9 +17,9 @@ FROM nginx:1.23-alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-# Рекурсивно устанавливаем правильные права доступа для всех файлов,
-# которые будет раздавать Nginx.
-RUN chmod -R 755 /usr/share/nginx/html
+# Рекурсивно даем права на чтение всем файлам для всех пользователей.
+# Это гарантирует, что процесс Nginx сможет их прочитать.
+RUN chmod -R o+r /usr/share/nginx/html
 
 # Копируем наш файл конфигурации для Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
