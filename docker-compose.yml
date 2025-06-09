@@ -1,5 +1,5 @@
-# /docker-compose.yml
-version: '3.8'
+# docker-compose.yml
+version: '3.7' # Оставляем совместимую версию
 
 services:
   # Сервис базы данных PostgreSQL
@@ -8,39 +8,33 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
-      # Эти переменные будут взяты из файла .env в этой же папке
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # Сервис бэкенда
   backend:
     build: ./backend
     restart: unless-stopped
     command: >
-      sh -c "alembic upgrade head && 
+      sh -c "sleep 10 && alembic upgrade head && 
              gunicorn -k uvicorn.workers.UvicornWorker -w 4 app.main:app --bind 0.0.0.0:8001"
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       - SECRET_KEY=${SECRET_KEY}
+    
+    # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
+    # Используем простой формат списка
     depends_on:
-      db:
-        condition: service_healthy
+      - db
 
   # Сервис фронтенда (Nginx)
   frontend:
     build: ./frontend
     restart: unless-stopped
     ports:
-      # Пробрасываем порт 80 сервера на порт 80 контейнера
       - "80:80"
-      # Если будете настраивать HTTPS, понадобится и 443 порт
       - "443:443"
     depends_on:
       - backend
