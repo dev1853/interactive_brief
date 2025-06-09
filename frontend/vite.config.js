@@ -6,24 +6,16 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    // Эта настройка позволяет запускать dev-сервер, 
-    // доступный из локальной сети, что полезно для тестов.
-    host: '0.0.0.0', 
-    port: 5173,
+    // Позволяет принимать запросы с любого сетевого хоста,
+    // а не только localhost. Полезно для работы в Docker.
+    host: true,
   },
   preview: {
-    // Эта настройка отвечает за команду `npm run preview`
-    host: '0.0.0.0',
-    port: 4173,
+    host: true,
     // --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
     // Явно разрешаем доступ с вашего домена
-    strictPort: true,
-    proxy: {
-        '/api': {
-            target: 'http://backend:8001',
-            changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api/, ''),
-        },
-    }
+    allowedHosts: [
+      'brief.prismatica.agency'
+    ],
   }
 })
