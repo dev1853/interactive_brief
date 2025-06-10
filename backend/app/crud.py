@@ -6,7 +6,7 @@ from typing import List, Union
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
+from sqlalchemy import select
 from . import models, schemas
 
 # --- CRUD для Пользователей ---
@@ -100,8 +100,13 @@ async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.Br
     return db_brief
 
 async def get_brief_by_id(db: AsyncSession, brief_id: int):
-    """Асинхронное получение брифа по ID (с жадной загрузкой из-за lazy='selectin' в модели)."""
-    result = await db.execute(select(models.Brief).filter(models.Brief.id == brief_id))
+    # Правильный запрос с "жадной" загрузкой
+    query = (
+        select(models.Brief)
+        .options(selectinload(models.Brief.questions)) # <-- Вот ключевое изменение
+        .filter(models.Brief.id == brief_id)
+    )
+    result = await db.execute(query)
     return result.scalars().first()
 
 async def get_user_briefs(db: AsyncSession, user_id: int) -> List[models.Brief]:
