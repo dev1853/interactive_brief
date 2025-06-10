@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import List, Union
 from fastapi import FastAPI
-from .routers import users, briefs
+from .routers import users, briefs, main_router
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -17,8 +17,9 @@ app = FastAPI(
 )
 
 # Подключаем роутеры
-app.include_router(users.router, prefix="/users", tags=["users"])
-app.include_router(briefs.router, prefix="/briefs", tags=["briefs"])
+app.include_router(users.router)
+app.include_router(main_router.router)
+app.include_router(briefs.router)
 
 # --- CRUD для Пользователей ---
 
