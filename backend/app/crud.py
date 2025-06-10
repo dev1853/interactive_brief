@@ -84,16 +84,46 @@ async def get_main_brief(db: AsyncSession) -> Union[models.Brief, None]:
     result = await db.execute(select(models.Brief).filter(models.Brief.owner_id == first_user.id).limit(1))
     return result.scalars().first()
 
-async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.BriefCreate):
-    # Эта функция требует сложной логики для обновления, пока оставляем заглушку
-    db_brief = await get_brief_by_id(db, brief_id)
-    if db_brief:
-        db_brief.title = brief_update.title
-        db_brief.description = brief_update.description
-        # Логика для обновления шагов и вопросов должна быть добавлена здесь
-        await db.commit()
-        await db.refresh(db_brief)
+async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.BriefCreate) -> models.Brief:
+    """
+    Обновляет существующий бриф, полностью заменяя его шаги и вопросы.
+    """
+    # Находим существующий бриф в базе
+    db_brief = await get_brief_by_id(db, brief_id=brief_id)
+    if not db_brief:
+        return None
+
+    # 1. Обновляем простые поля (название, описание)
+    db_brief.title = brief_update.title
+    db_brief.description = brief_update.description
+
+    # 2. Удаляем все старые шаги, связанные с этим брифом.
+    # SQLAlchemy благодаря 'cascade="all, delete-orphan"' удалит и все связанные вопросы.
+    db_brief.steps.clear()
+    await db.flush() # Применяем удаление
+
+    # 3. Создаем новые шаги и вопросы из полученных данных
+    for step_index, step_data in enumerate(brief_update.steps):
+        new_step = models.Step(
+            title=step_data.title,
+            description=step_data.description,
+            order=step_index,
+            questions=[
+                models.Question(
+                    text=q.text,
+                    question_type=q.question_type,
+                    options=q.options,
+                    is_required=q.is_required,
+                    order=q_idx
+                ) for q_idx, q in enumerate(step_data.questions)
+            ]
+        )
+        db_brief.steps.append(new_step)
+
+    await db.commit()
+    await db.refresh(db_brief)
     return db_brief
+    
 # --- CRUD для Ответов (Submissions) ---
 
 async def create_submission(db: AsyncSession, submission: schemas.SubmissionCreate):
