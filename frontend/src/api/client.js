@@ -2,12 +2,12 @@
 import axios from 'axios';
 
 const client = axios.create({
-  // Теперь все запросы будут идти на тот же домен, 
-  // но с префиксом /api, который перехватит Nginx
+  // ИСПРАВЛЕНИЕ: Убираем baseURL, чтобы запросы были относительными
+  // Это заставит браузер использовать тот же хост и протокол (HTTPS)
+  // и правильно добавлять префикс /api/
   baseURL: '/api',
 });
 
-// Перехватчик для автоматического добавления токена авторизации
 client.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -18,6 +18,7 @@ client.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
 
 
 // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---

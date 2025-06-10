@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from .database import init_db
-from .routers import users, briefs, main_router
+from .routers import users, briefs, main_router # Импорт всех трех
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
