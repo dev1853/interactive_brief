@@ -12,4 +12,4 @@ python-dotenv
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
-reportlab
+reportlab  # <-- ДОБАВЛЕННАЯ СТРОКА
