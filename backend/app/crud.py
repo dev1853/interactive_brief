@@ -6,7 +6,6 @@ from typing import List, Union
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy import select
 from . import models, schemas
 
 # --- CRUD для Пользователей ---
@@ -99,21 +98,24 @@ async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.Br
     await db.refresh(db_brief)
     return db_brief
 
-async def get_brief_by_id(db: AsyncSession, brief_id: int):
-    # Правильный запрос с "жадной" загрузкой
+async def get_brief_by_id(db: AsyncSession, brief_id: int) -> Union[models.Brief, None]:
+    """Асинхронно получает бриф по его ID."""
     query = (
         select(models.Brief)
-        .options(selectinload(models.Brief.questions)) # <-- Вот ключевое изменение
-        .filter(models.Brief.id == brief_id)
+        .options(selectinload(models.Brief.questions)) # <-- ДОБАВЛЕНО
+        .where(models.Brief.id == brief_id)
     )
     result = await db.execute(query)
     return result.scalars().first()
 
 async def get_user_briefs(db: AsyncSession, user_id: int) -> List[models.Brief]:
-    """Асинхронное получение всех брифов пользователя."""
-    result = await db.execute(
-        select(models.Brief).where(models.Brief.owner_id == user_id)
+    """Асинхронно получает все брифы для конкретного пользователя."""
+    query = (
+        select(models.Brief)
+        .options(selectinload(models.Brief.questions)) # <-- ДОБАВЛЕНО
+        .filter(models.Brief.owner_id == user_id)
     )
+    result = await db.execute(query)
     return result.scalars().all()
 
 async def get_main_brief(db: AsyncSession) -> Union[models.Brief, None]:
