@@ -84,25 +84,27 @@ async def get_main_brief(db: AsyncSession) -> Union[models.Brief, None]:
     result = await db.execute(select(models.Brief).filter(models.Brief.owner_id == first_user.id).limit(1))
     return result.scalars().first()
 
-async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.BriefCreate) -> models.Brief:
+async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.BriefCreate) -> Union[models.Brief, None]:
     """
-    Обновляет существующий бриф, полностью заменяя его шаги и вопросы.
+    Полностью и безопасно обновляет бриф, его шаги и вопросы.
     """
-    # Находим существующий бриф в базе
-    db_brief = await get_brief_by_id(db, brief_id=brief_id)
+    # Находим существующий бриф
+    db_brief = await get_brief_by_id(db, brief_id)
     if not db_brief:
         return None
 
-    # 1. Обновляем простые поля (название, описание)
+    # 1. Обновляем поля самого брифа
     db_brief.title = brief_update.title
     db_brief.description = brief_update.description
 
-    # 2. Удаляем все старые шаги, связанные с этим брифом.
-    # SQLAlchemy благодаря 'cascade="all, delete-orphan"' удалит и все связанные вопросы.
-    db_brief.steps.clear()
-    await db.flush() # Применяем удаление
+    # 2. Удаляем все старые шаги, связанные с этим брифом
+    # Это проще и надежнее, чем пытаться сопоставить старые и новые.
+    for step in db_brief.steps:
+        await db.delete(step)
+    await db.flush()
 
     # 3. Создаем новые шаги и вопросы из полученных данных
+    new_steps = []
     for step_index, step_data in enumerate(brief_update.steps):
         new_step = models.Step(
             title=step_data.title,
@@ -118,11 +120,34 @@ async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.Br
                 ) for q_idx, q in enumerate(step_data.questions)
             ]
         )
-        db_brief.steps.append(new_step)
+        new_steps.append(new_step)
 
+    db_brief.steps = new_steps
+
+    db.add(db_brief)
     await db.commit()
     await db.refresh(db_brief)
     return db_brief
+
+async def set_main_brief(db: AsyncSession, brief_id: int, user_id: int):
+    # Эта операция должна быть атомарной
+    async with db.begin():
+        # Снимаем флаг со всех брифов пользователя
+        await db.execute(
+            update(models.Brief)
+            .where(models.Brief.owner_id == user_id)
+            .values(is_main=False)
+        )
+        # Устанавливаем флаг для целевого брифа
+        await db.execute(
+            update(models.Brief)
+            .where(models.Brief.id == brief_id, models.Brief.owner_id == user_id)
+            .values(is_main=True)
+        )
+
+    # После коммита возвращаем обновленный бриф
+    updated_brief = await get_brief_by_id(db, brief_id)
+    return updated_brief
     
 # --- CRUD для Ответов (Submissions) ---
 
