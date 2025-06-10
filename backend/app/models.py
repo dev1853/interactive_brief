@@ -13,6 +13,10 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # ИЗМЕНЕНИЕ: Используем "жадную" загрузку, чтобы избежать ошибок MissingGreenlet
     briefs = relationship("Brief", back_populates="owner", lazy="selectin")
 
 class Brief(Base):
@@ -22,10 +26,13 @@ class Brief(Base):
     description = Column(Text, nullable=True)
     is_main = Column(Boolean, default=False, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"))
+    
     owner = relationship("User", back_populates="briefs")
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    steps = relationship("Step", back_populates="brief", cascade="all, delete-orphan", lazy="selectin")
+    
+    steps = relationship("Step", back_populates="brief", cascade="all, delete-orphan", lazy="selectin", order_by="Step.order")
     submissions = relationship("Submission", back_populates="brief", cascade="all, delete-orphan", lazy="selectin")
 
 class Step(Base):
@@ -35,8 +42,9 @@ class Step(Base):
     description = Column(Text, nullable=True)
     order = Column(Integer, nullable=False)
     brief_id = Column(Integer, ForeignKey("briefs.id"), nullable=False)
+    
     brief = relationship("Brief", back_populates="steps")
-    questions = relationship("Question", back_populates="step", cascade="all, delete-orphan", lazy="selectin")
+    questions = relationship("Question", back_populates="step", cascade="all, delete-orphan", lazy="selectin", order_by="Question.order")
     conditional_logic = Column(JSON, nullable=True)
 
 class Question(Base):
