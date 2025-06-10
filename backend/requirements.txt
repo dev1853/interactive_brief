@@ -1,32 +1,15 @@
 # backend/requirements.txt
 
-# Основной фреймворк
 fastapi
-
-# Серверы для запуска
 uvicorn
 gunicorn
-
-# База данных и ORM
 sqlalchemy==1.4.46
 asyncpg
 psycopg2-binary
-
-# Миграции
 alembic
-
-# Валидация данных (версия 1, как в вашем коде)
 pydantic<2
-
-# Переменные окружения
 python-dotenv
-
-# Аутентификация и JWT
 python-jose[cryptography]
 passlib[bcrypt]
-
-# Для приема форм (логин) и файлов
 python-multipart
-
-# Для генерации PDF
 reportlab
