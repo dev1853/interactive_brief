@@ -7,7 +7,9 @@ from .routers import users, briefs, main_router
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from . import models, schemas
+from .database import SessionLocal
+from . import crud, auth, schemas
+from .config import settings 
 
 app = FastAPI(
     title="Interactive Brief API",
@@ -172,7 +174,8 @@ async def get_submission_by_session_id(db: AsyncSession, session_id: str):
 
 @app.on_event("startup")
 async def startup_event():
-    async for db in get_db():
+    # Создаем сессию БД напрямую для стартового события
+    async with SessionLocal() as db:
         # Проверяем и по email, и по имени пользователя
         admin_by_email = await crud.get_user_by_email(db, email=settings.ADMIN_EMAIL)
         admin_by_username = await crud.get_user_by_username(db, username=settings.ADMIN_USERNAME)
@@ -181,11 +184,11 @@ async def startup_event():
         if not admin_by_email and not admin_by_username:
             hashed_password = auth.get_password_hash(settings.ADMIN_PASSWORD)
             await crud.create_user(
-                db,
+                db=db,
                 user=schemas.UserCreate(
                     username=settings.ADMIN_USERNAME,
                     email=settings.ADMIN_EMAIL,
-                    password=settings.ADMIN_PASSWORD
+                    password=settings.ADMIN_PASSWORD,
                 ),
                 hashed_password=hashed_password
             )
