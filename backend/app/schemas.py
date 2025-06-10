@@ -30,6 +30,7 @@ class StepCreate(StepBase):
 
 class Step(StepBase):
     id: int
+    order: int
     questions: List[Question] = []
     class Config:
         orm_mode = True
@@ -46,6 +47,7 @@ class Brief(BriefBase):
     id: int
     owner_id: int
     is_main: bool
+    created_at: datetime
     steps: List[Step] = []
     class Config:
         orm_mode = True
@@ -62,7 +64,7 @@ class Submission(SubmissionBase):
     session_id: str
     created_at: datetime
     answers_data: Dict[str, Any]
-    brief: Brief # Включаем полный бриф в ответ
+    brief: Brief
     class Config:
         orm_mode = True
 
@@ -91,3 +93,4 @@ class TokenData(BaseModel):
 
 # Обновление ссылок для вложенных схем
 User.update_forward_refs()
+Brief.update_forward_refs()
