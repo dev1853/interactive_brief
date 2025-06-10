@@ -1,28 +1,17 @@
-# frontend/Dockerfile
+# frontend/Dockerfile (НОВАЯ ВЕРСИЯ)
 
-# --- Этап 1: Сборка React-приложения ---
-FROM node:18-alpine AS builder
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
-
-
-# --- Этап 2: Настройка веб-сервера Nginx ---
+# Используем только легковесный образ Nginx
 FROM nginx:1.23-alpine
 
-# Копируем собранные файлы из первого этапа
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Копируем УЖЕ СОБРАННЫЕ файлы из локальной папки 'dist'
+# Эта папка должна быть создана командой 'npm run build' на вашем компьютере
+COPY ./dist /usr/share/nginx/html
 
-# --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-# Рекурсивно даем права на чтение всем файлам для всех пользователей.
-# Это гарантирует, что процесс Nginx сможет их прочитать.
-RUN chmod -R o+r /usr/share/nginx/html
-
-# Копируем наш файл конфигурации для Nginx
+# Копируем конфигурацию Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Устанавливаем правильные права доступа
+RUN chmod -R o+r /usr/share/nginx/html
 
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
