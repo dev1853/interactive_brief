@@ -27,6 +27,11 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate, hashed_passwor
     await db.refresh(db_user)
     return db_user
 
+async def get_user_by_username(db: AsyncSession, username: str) -> Union[models.User, None]:
+    """Асинхронно получает пользователя по имени пользователя."""
+    result = await db.execute(select(models.User).filter(models.User.username == username))
+    return result.scalars().first()
+
 # --- CRUD для Брифов ---
 
 async def create_brief(db: AsyncSession, brief: schemas.BriefCreate, owner_id: int) -> models.Brief:

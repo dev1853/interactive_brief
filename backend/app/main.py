@@ -169,3 +169,26 @@ async def get_submission_by_session_id(db: AsyncSession, session_id: str):
         select(models.Submission).filter(models.Submission.session_id == session_id)
     )
     return result.scalars().first()
+
+@app.on_event("startup")
+async def startup_event():
+    async for db in get_db():
+        # Проверяем и по email, и по имени пользователя
+        admin_by_email = await crud.get_user_by_email(db, email=settings.ADMIN_EMAIL)
+        admin_by_username = await crud.get_user_by_username(db, username=settings.ADMIN_USERNAME)
+
+        # Создаем админа, только если его нет ни по email, ни по имени
+        if not admin_by_email and not admin_by_username:
+            hashed_password = auth.get_password_hash(settings.ADMIN_PASSWORD)
+            await crud.create_user(
+                db,
+                user=schemas.UserCreate(
+                    username=settings.ADMIN_USERNAME,
+                    email=settings.ADMIN_EMAIL,
+                    password=settings.ADMIN_PASSWORD
+                ),
+                hashed_password=hashed_password
+            )
+            print("Admin user has been created.")
+        else:
+            print("Admin user already exists.")
