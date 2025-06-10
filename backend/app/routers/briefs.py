@@ -51,7 +51,7 @@ async def read_brief_endpoint(brief_id: int, db: AsyncSession = Depends(get_db))
     return db_brief
 
 
-@router.post("/", response_model=schemas.Brief, status_code=status.HTTP_201_CREATED, summary="Создать новый бриф")
+@router.post("", response_model=schemas.Brief, status_code=status.HTTP_201_CREATED, summary="Создать новый бриф")
 async def create_brief_endpoint(
     brief: schemas.BriefCreate,
     db: AsyncSession = Depends(get_db),
