@@ -7,19 +7,24 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from .database import init_db
-from .routers import users, briefs, main_router # Импорт всех трех
-
+from .routers import users, briefs, main_router 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     yield
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Interactive Brief API",
+    description="API для системы интерактивных брифов",
+    version="1.0.0",
+    openapi_version="3.1.0",
+    lifespan=lifespan
+)
 
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://brief.prismatica.agency", # Ваш домен
+    "https://brief.prismatica.agency", 
 ]
 
 app.add_middleware(
