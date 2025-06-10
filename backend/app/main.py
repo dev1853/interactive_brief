@@ -4,19 +4,16 @@ import uuid
 from typing import List, Union
 from fastapi import FastAPI
 from .routers import users, briefs
-
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
 from . import models, schemas
 
 app = FastAPI(
     title="Interactive Brief API",
     description="API для системы интерактивных брифов",
     version="1.0.0",
-    openapi_version="3.1.0",
-    lifespan=lifespan
+    openapi_version="3.1.0"
 )
 
 # Подключаем роутеры
