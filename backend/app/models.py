@@ -15,6 +15,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    briefs = relationship("Brief", back_populates="owner") 
 
 class Brief(Base):
     __tablename__ = "briefs"
