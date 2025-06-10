@@ -86,6 +86,7 @@ async def get_brief_by_id(db: AsyncSession, brief_id: int):
     )
     return result.scalars().first()
 
+    
 async def get_user_briefs(db: AsyncSession, user_id: int) -> List[models.Brief]:
     result = await db.execute(select(models.Brief).where(models.Brief.owner_id == user_id))
     return result.scalars().all()
