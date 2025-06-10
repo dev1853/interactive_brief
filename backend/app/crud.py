@@ -31,33 +31,51 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate, hashed_passwor
 # --- CRUD для Брифов ---
 async def create_brief(db: AsyncSession, brief: schemas.BriefCreate, owner_id: int) -> models.Brief:
     """
-    Создает бриф со всеми вложенными шагами и вопросами единым, правильным способом.
+    Асинхронно создает новый бриф вместе со всеми вложенными шагами и вопросами.
     """
+    # 1. Создаем основной объект брифа
     db_brief = models.Brief(
         title=brief.title,
         description=brief.description,
-        owner_id=owner_id,
-        steps=[
-            models.Step(
-                title=step_data.title,
-                description=step_data.description,
-                order=step_index,
-                questions=[
-                    models.Question(
-                        text=question_data.text,
-                        question_type=question_data.question_type,
-                        options=question_data.options,
-                        is_required=question_data.is_required,
-                        order=question_index
-                    ) for question_index, question_data in enumerate(step_data.questions)
-                ]
-            ) for step_index, step_data in enumerate(brief.steps)
-        ]
+        owner_id=owner_id
     )
     db.add(db_brief)
+    
+    # Отправляем изменения в БД, чтобы получить ID брифа, но не завершаем транзакцию.
+    await db.flush()
+
+    # 2. Создаем шаги и вопросы в цикле, используя enumerate для порядка
+    for step_index, step_data in enumerate(brief.steps):
+        db_step = models.Step(
+            title=step_data.title,
+            description=step_data.description,
+            brief_id=db_brief.id,
+            order=step_index # Используем индекс из enumerate
+        )
+        db.add(db_step)
+        await db.flush() # Получаем ID шага
+
+        for question_index, question_data in enumerate(step_data.questions):
+            db_question = models.Question(
+                text=question_data.text,
+                question_type=question_data.question_type,
+                options=question_data.options,
+                is_required=question_data.is_required,
+                step_id=db_step.id,
+                order=question_index # Используем индекс из enumerate
+            )
+            db.add(db_question)
+
+    # 3. Завершаем транзакцию, сохраняя все изменения
     await db.commit()
-    await db.refresh(db_brief)
-    return db_brief
+    
+    # 4. Загружаем и возвращаем полностью укомплектованный объект
+    result = await db.execute(
+        select(models.Brief).options(
+            selectinload(models.Brief.steps).selectinload(models.Step.questions)
+        ).filter(models.Brief.id == db_brief.id)
+    )
+    return result.scalars().one()
 
 async def get_brief_by_id(db: AsyncSession, brief_id: int):
     """Асинхронное получение брифа по ID с его шагами и вопросами."""
