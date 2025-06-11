@@ -3,19 +3,20 @@ from sqlalchemy import (Column, Integer, String, Text, Boolean, DateTime,
                         ForeignKey, JSON)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from datetime import datetime
+
 from .database import Base
 
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    briefs = relationship("Brief", back_populates="owner") 
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    briefs = relationship("Brief", back_populates="owner", lazy="selectin")
 
 class Brief(Base):
     __tablename__ = "briefs"
@@ -23,7 +24,7 @@ class Brief(Base):
     title = Column(String, index=True, nullable=False)
     description = Column(Text, nullable=True)
     is_main = Column(Boolean, default=False, nullable=False)
-    owner_id = Column(Integer, ForeignKey("users.id"))
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     owner = relationship("User", back_populates="briefs")
     

@@ -6,22 +6,15 @@ from typing import List, Union
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
 from . import models, schemas
 
 # --- CRUD для Пользователей ---
-
 async def get_user_by_email(db: AsyncSession, email: str) -> Union[models.User, None]:
-    """Асинхронно получает пользователя по email."""
     result = await db.execute(select(models.User).filter(models.User.email == email))
     return result.scalars().first()
 
-async def get_user_by_username(db: AsyncSession, username: str) -> Union[models.User, None]:
-    """Асинхронно получает пользователя по имени пользователя."""
-    result = await db.execute(select(models.User).filter(models.User.username == username))
-    return result.scalars().first()
-
 async def create_user(db: AsyncSession, user: schemas.UserCreate, hashed_password: str) -> models.User:
-    """Создает пользователя, принимая уже хешированный пароль."""
     db_user = models.User(
         email=user.email,
         username=user.username,
@@ -33,31 +26,7 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate, hashed_passwor
     return db_user
 
 # --- CRUD для Брифов ---
-
-async def get_user_briefs(db: AsyncSession, user_id: int) -> List[models.Brief]:
-    """Асинхронно получает все брифы для конкретного пользователя с их вопросами."""
-    query = (
-        select(models.Brief)
-        .options(selectinload(models.Brief.questions))  # Жадная загрузка вопросов
-        .filter(models.Brief.owner_id == user_id)
-    )
-    result = await db.execute(query)
-    return result.scalars().all()
-
-async def get_brief_by_id(db: AsyncSession, brief_id: int) -> Union[models.Brief, None]:
-    """Асинхронно получает бриф по его ID с его вопросами."""
-    query = (
-        select(models.Brief)
-        .options(selectinload(models.Brief.questions))  # Жадная загрузка вопросов
-        .where(models.Brief.id == brief_id)
-    )
-    result = await db.execute(query)
-    return result.scalars().first()
-
 async def create_brief(db: AsyncSession, brief: schemas.BriefCreate, owner_id: int) -> models.Brief:
-    """
-    Создает бриф со всеми вложенными шагами и вопросами единым, правильным способом.
-    """
     db_brief = models.Brief(
         title=brief.title,
         description=brief.description,
@@ -66,14 +35,17 @@ async def create_brief(db: AsyncSession, brief: schemas.BriefCreate, owner_id: i
             models.Step(
                 title=step_data.title,
                 description=step_data.description,
+                order=step_index,
                 questions=[
                     models.Question(
-                        text=q_data.text,
-                        question_type=q_data.question_type,
-                        options=q_data.options
-                    ) for q_data in step_data.questions
+                        text=q.text,
+                        question_type=q.question_type,
+                        options=q.options,
+                        is_required=q.is_required,
+                        order=q_idx
+                    ) for q_idx, q in enumerate(step_data.questions)
                 ]
-            ) for step_data in brief.steps
+            ) for step_index, step_data in enumerate(brief.steps)
         ]
     )
     db.add(db_brief)
@@ -81,53 +53,82 @@ async def create_brief(db: AsyncSession, brief: schemas.BriefCreate, owner_id: i
     await db.refresh(db_brief)
     return db_brief
 
-async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.BriefCreate, owner_id: int) -> models.Brief | None:
-    """Асинхронное обновление брифа."""
-    db_brief = await get_brief_by_id(db, brief_id)
-    if not db_brief or db_brief.owner_id != owner_id:
+async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.BriefCreate) -> Union[models.Brief, None]:
+    result = await db.execute(select(models.Brief).filter(models.Brief.id == brief_id))
+    db_brief = result.scalars().first()
+    
+    if not db_brief:
         return None
 
-    # Простое обновление полей
     db_brief.title = brief_update.title
     db_brief.description = brief_update.description
     
-    # Удаление старых шагов и вопросов
-    for step in db_brief.steps:
-        await db.delete(step)
+    # Очищаем старые шаги (cascade в models.py удалит связанные вопросы)
+    db_brief.steps.clear()
     await db.flush()
 
-    # Добавление новых шагов и вопросов
+    # Добавляем новые
     new_steps = []
-    for step_data in brief_update.steps:
-        new_step = models.Step(title=step_data.title, description=step_data.description, brief_id=brief_id)
-        new_questions = []
-        for q_data in step_data.questions:
-            new_question = models.Question(text=q_data.text, question_type=q_data.question_type, options=q_data.options, step=new_step)
-            new_questions.append(new_question)
-        new_step.questions = new_questions
+    for step_index, step_data in enumerate(brief_update.steps):
+        new_step = models.Step(
+            title=step_data.title,
+            description=step_data.description,
+            order=step_index,
+            questions=[
+                models.Question(
+                    text=q.text,
+                    question_type=q.question_type,
+                    options=q.options,
+                    is_required=q.is_required,
+                    order=q_idx
+                ) for q_idx, q in enumerate(step_data.questions)
+            ]
+        )
         new_steps.append(new_step)
     
     db_brief.steps = new_steps
-
+    
     await db.commit()
     await db.refresh(db_brief)
     return db_brief
 
-async def delete_brief(db: AsyncSession, brief_id: int, owner_id: int):
-    """Асинхронное удаление брифа."""
-    db_brief = await db.execute(
-        select(models.Brief).where(models.Brief.id == brief_id, models.Brief.owner_id == owner_id)
+async def get_brief_by_id(db: AsyncSession, brief_id: int):
+    result = await db.execute(select(models.Brief).filter(models.Brief.id == brief_id))
+    return result.scalars().first()
+
+async def get_user_briefs(db: AsyncSession, user_id: int) -> List[models.Brief]:
+    result = await db.execute(select(models.Brief).where(models.Brief.owner_id == user_id))
+    return result.scalars().all()
+
+async def get_main_brief(db: AsyncSession) -> Union[models.Brief, None]:
+    first_user_res = await db.execute(select(models.User).limit(1))
+    first_user = first_user_res.scalars().first()
+    if not first_user: return None
+    
+    result = await db.execute(
+        select(models.Brief).filter(models.Brief.owner_id == first_user.id, models.Brief.is_main == True)
     )
-    db_brief = db_brief.scalars().first()
+    main_brief = result.scalars().first()
+    if main_brief: return main_brief
+    
+    result = await db.execute(select(models.Brief).filter(models.Brief.owner_id == first_user.id).limit(1))
+    return result.scalars().first()
+
+async def set_main_brief(db: AsyncSession, brief_id: int, user_id: int):
+    await db.execute(update(models.Brief).where(models.Brief.owner_id == user_id).values(is_main=False))
+    await db.execute(update(models.Brief).where(models.Brief.id == brief_id, models.Brief.owner_id == user_id).values(is_main=True))
+    await db.commit()
+    return await get_brief_by_id(db, brief_id)
+
+async def delete_brief(db: AsyncSession, brief_id: int):
+    db_brief = await get_brief_by_id(db, brief_id)
     if db_brief:
         await db.delete(db_brief)
         await db.commit()
     return db_brief
 
-# --- CRUD для Ответов (Submissions) ---
-
+# --- CRUD для Ответов ---
 async def create_submission(db: AsyncSession, submission: schemas.SubmissionCreate):
-    """Асинхронное создание ответа."""
     session_id = str(uuid.uuid4())
     db_submission = models.Submission(
         brief_id=submission.brief_id, 
@@ -140,8 +141,13 @@ async def create_submission(db: AsyncSession, submission: schemas.SubmissionCrea
     return db_submission
 
 async def get_submissions_by_brief_id(db: AsyncSession, brief_id: int):
-    """Асинхронное получение всех ответов для брифа."""
     result = await db.execute(
-        select(models.Submission).filter(models.Submission.brief_id == brief_id)
+        select(models.Submission).options(selectinload(models.Submission.brief)).filter(models.Submission.brief_id == brief_id)
     )
     return result.scalars().all()
+
+async def get_submission_by_session_id(db: AsyncSession, session_id: str):
+    result = await db.execute(
+        select(models.Submission).options(selectinload(models.Submission.brief)).filter(models.Submission.session_id == session_id)
+    )
+    return result.scalars().first()
