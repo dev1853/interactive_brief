@@ -1,7 +1,9 @@
 // frontend/src/components/Register.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import client from '../api/client';
+
+// Импортируем нашу специальную функцию из api/client.js
+import { registerUser } from '../api/client';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -14,10 +16,21 @@ const Register = () => {
     e.preventDefault();
     setError('');
     try {
-      await client.post('/users', { email, username, password });
+      // ИСПРАВЛЕНИЕ: Убедимся, что мы отправляем объект
+      // с полями username, email и password, как того требует бэкенд
+      const userData = {
+        username: username,
+        email: email,
+        password: password,
+      };
+
+      await registerUser(userData);
+      alert('Регистрация прошла успешно! Теперь вы можете войти.');
       navigate('/login');
     } catch (err) {
-      setError('Ошибка регистрации. Возможно, пользователь уже существует.');
+      // Пытаемся получить более детальное сообщение об ошибке от FastAPI
+      const detail = err.response?.data?.detail || 'Не удалось зарегистрироваться.';
+      setError(detail);
       console.error(err);
     }
   };
