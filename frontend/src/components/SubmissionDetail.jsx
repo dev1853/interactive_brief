@@ -34,7 +34,7 @@ const SubmissionDetail = () => {
           {value.map((item, index) => (
             <li key={index}>
               {item && item.url ? (
-                <a href={`http://localhost:8001${item.url}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-indigo-600 hover:text-indigo-800">
+                <a href={item.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-indigo-600 hover:text-indigo-800">
                   <PaperClipIcon className="h-4 w-4 mr-1"/> {item.name || 'файл'}
                 </a>
               ) : (
