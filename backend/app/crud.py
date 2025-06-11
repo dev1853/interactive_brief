@@ -9,6 +9,17 @@ from sqlalchemy.orm import selectinload
 
 from . import models, schemas
 
+# --- Утилитарная функция для загрузки полного брифа ---
+def _get_brief_with_details_query(brief_id: int):
+    return (
+        select(models.Brief)
+        .options(
+            selectinload(models.Brief.steps).selectinload(models.Step.questions)
+        )
+        .filter(models.Brief.id == brief_id)
+    )
+
+
 # --- CRUD для Пользователей ---
 async def get_user_by_email(db: AsyncSession, email: str) -> Union[models.User, None]:
     result = await db.execute(select(models.User).filter(models.User.email == email))
@@ -50,8 +61,9 @@ async def create_brief(db: AsyncSession, brief: schemas.BriefCreate, owner_id: i
     )
     db.add(db_brief)
     await db.commit()
-    await db.refresh(db_brief)
-    return db_brief
+    # После commit'а запрашиваем объект заново с полной загрузкой
+    result = await db.execute(_get_brief_with_details_query(db_brief.id))
+    return result.scalars().one()
 
 async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.BriefCreate) -> Union[models.Brief, None]:
     result = await db.execute(
@@ -60,7 +72,6 @@ async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.Br
         .filter(models.Brief.id == brief_id)
     )
     db_brief = result.scalars().first()
-    
     if not db_brief:
         return None
 
@@ -96,11 +107,12 @@ async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.Br
         db_brief.steps.append(new_step)
     
     await db.commit()
-    await db.refresh(db_brief)
-    return db_brief
+    result = await db.execute(_get_brief_with_details_query(brief_id))
+    return result.scalars().one()
 
 async def get_brief_by_id(db: AsyncSession, brief_id: int):
-    result = await db.execute(select(models.Brief).filter(models.Brief.id == brief_id))
+    """Асинхронное получение брифа по ID с полной загрузкой."""
+    result = await db.execute(_get_brief_with_details_query(brief_id))
     return result.scalars().first()
 
 async def get_user_briefs(db: AsyncSession, user_id: int) -> List[models.Brief]:
