@@ -20,6 +20,12 @@ app = FastAPI(
     description="API для системы интерактивных брифов",
     version="1.0.0",
     openapi_version="3.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    contact={
+        "name": "Development 1853",
+        "url": "https://dev1853.ru",
+        "email": "  
     lifespan=lifespan
 )
 
