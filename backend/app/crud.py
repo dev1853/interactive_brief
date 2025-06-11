@@ -54,21 +54,30 @@ async def create_brief(db: AsyncSession, brief: schemas.BriefCreate, owner_id: i
     return db_brief
 
 async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.BriefCreate) -> Union[models.Brief, None]:
-    result = await db.execute(select(models.Brief).filter(models.Brief.id == brief_id))
+    result = await db.execute(
+        select(models.Brief)
+        .options(selectinload(models.Brief.steps).selectinload(models.Step.questions))
+        .filter(models.Brief.id == brief_id)
+    )
     db_brief = result.scalars().first()
     
     if not db_brief:
         return None
 
+    # 1. Обновляем простые поля самого брифа
     db_brief.title = brief_update.title
     db_brief.description = brief_update.description
+
+    # 2. Удаляем все старые шаги. Благодаря cascade="all, delete-orphan" в модели,
+    # SQLAlchemy автоматически удалит все вопросы, принадлежащие этим шагам.
+    for step in db_brief.steps:
+        await db.delete(step)
     
-    # Очищаем старые шаги (cascade в models.py удалит связанные вопросы)
-    db_brief.steps.clear()
+    # Очищаем коллекцию в памяти
+    db_brief.steps = []
     await db.flush()
 
-    # Добавляем новые
-    new_steps = []
+    # 3. Создаем новые шаги и вопросы из данных, пришедших с фронтенда
     for step_index, step_data in enumerate(brief_update.steps):
         new_step = models.Step(
             title=step_data.title,
@@ -84,9 +93,7 @@ async def update_brief(db: AsyncSession, brief_id: int, brief_update: schemas.Br
                 ) for q_idx, q in enumerate(step_data.questions)
             ]
         )
-        new_steps.append(new_step)
-    
-    db_brief.steps = new_steps
+        db_brief.steps.append(new_step)
     
     await db.commit()
     await db.refresh(db_brief)

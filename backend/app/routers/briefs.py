@@ -60,20 +60,18 @@ async def create_brief_endpoint(
     return await crud.create_brief(db=db, brief=brief, owner_id=current_user.id)
 
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ОБНОВЛЕНИЯ ---
-@router.put("/{brief_id}", response_model=schemas.Brief, summary="Обновить бриф")
+@router.put("/{brief_id}", response_model=schemas.Brief)
 async def update_brief_endpoint(
     brief_id: int,
     brief_update: schemas.BriefCreate,
     db: AsyncSession = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_active_user)
 ):
-    # Проверяем, что пользователь владеет этим брифом
     db_brief = await crud.get_brief_by_id(db, brief_id)
     if not db_brief or db_brief.owner_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Бриф не найден или у вас нет прав на его редактирование")
-
-    updated_brief = await crud.update_brief(db, brief_id=brief_id, brief_update=brief_update)
-    return updated_brief
+        raise HTTPException(status_code=404, detail="Бриф не найден")
+    
+    return await crud.update_brief(db, brief_id=brief_id, brief_update=brief_update)
 
 @router.put("/{brief_id}/set-main", response_model=schemas.Brief, summary="Назначить бриф главным")
 async def set_main_brief_endpoint(
