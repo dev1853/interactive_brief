@@ -141,13 +141,21 @@ async def create_submission(db: AsyncSession, submission: schemas.SubmissionCrea
     return db_submission
 
 async def get_submissions_by_brief_id(db: AsyncSession, brief_id: int):
+    """Асинхронное получение всех ответов для брифа."""
     result = await db.execute(
-        select(models.Submission).options(selectinload(models.Submission.brief)).filter(models.Submission.brief_id == brief_id)
+        select(models.Submission)
+            # ИСПРАВЛЕНИЕ: Явно указываем, что нужно сразу загрузить связанный бриф
+            .options(selectinload(models.Submission.brief))
+            .filter(models.Submission.brief_id == brief_id)
     )
     return result.scalars().all()
 
 async def get_submission_by_session_id(db: AsyncSession, session_id: str):
+    """Асинхронное получение ответа по ID сессии."""
     result = await db.execute(
-        select(models.Submission).options(selectinload(models.Submission.brief)).filter(models.Submission.session_id == session_id)
+        select(models.Submission)
+            # ИСПРАВЛЕНИЕ: Явно указываем, что нужно сразу загрузить связанный бриф
+            .options(selectinload(models.Submission.brief))
+            .filter(models.Submission.session_id == session_id)
     )
     return result.scalars().first()
