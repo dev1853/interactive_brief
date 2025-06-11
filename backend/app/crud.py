@@ -129,6 +129,7 @@ async def delete_brief(db: AsyncSession, brief_id: int):
 
 # --- CRUD для Ответов ---
 async def create_submission(db: AsyncSession, submission: schemas.SubmissionCreate):
+    """Асинхронное создание ответа."""
     session_id = str(uuid.uuid4())
     db_submission = models.Submission(
         brief_id=submission.brief_id, 
@@ -137,8 +138,14 @@ async def create_submission(db: AsyncSession, submission: schemas.SubmissionCrea
     )
     db.add(db_submission)
     await db.commit()
-    await db.refresh(db_submission)
-    return db_submission
+    
+    # ИСПРАВЛЕНИЕ: Вместо refresh делаем явный запрос с загрузкой связи
+    result = await db.execute(
+        select(models.Submission)
+        .options(selectinload(models.Submission.brief))
+        .filter(models.Submission.id == db_submission.id)
+    )
+    return result.scalars().first()
 
 async def get_submissions_by_brief_id(db: AsyncSession, brief_id: int):
     """Асинхронное получение всех ответов для брифа."""
