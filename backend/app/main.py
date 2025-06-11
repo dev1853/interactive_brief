@@ -1,21 +1,34 @@
-# backend/app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import main_router
-from .database import SessionLocal
-from . import crud, auth, schemas
-from .config import settings
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
 
-app = FastAPI(title="Interactive Briefs API")
+# Импортируем наши модули
+from .database import init_db
+from .routers import users, briefs, main_router
+
+# СНАЧАЛА определяем функцию lifespan
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Выполняет код при старте приложения, например, инициализацию БД."""
+    await init_db()
+    yield
+
+# ТЕПЕРЬ создаем приложение и передаем в него lifespan
+app = FastAPI(
+    title="Interactive Brief API",
+    description="API для системы интерактивных брифов",
+    version="1.0.0",
+    openapi_version="3.1.0",
+    lifespan=lifespan
+)
 
 # Настройка CORS
 origins = [
-    "http://localhost",
-    "http://localhost:5173", # Порт по умолчанию для Vite/React
-    "http://snova.dev",
-    "https://snova.dev"
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://brief.prismatica.agency",
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -24,33 +37,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-async def startup_event():
-    """
-    Выполняется при старте приложения.
-    Создает администратора, если он не существует.
-    """
-    # Создаем сессию БД напрямую для стартового события
-    async with SessionLocal() as db:
-        # Проверяем и по email, и по имени пользователя
-        admin_by_email = await crud.get_user_by_email(db, email=settings.ADMIN_EMAIL)
-        admin_by_username = await crud.get_user_by_username(db, username=settings.ADMIN_USERNAME)
+# Подключение папки для загруженных файлов
+app.mount("/uploads", StaticFiles(directory=Path("uploads")), name="uploads")
 
-        # Создаем админа, только если его нет ни по email, ни по имени
-        if not admin_by_email and not admin_by_username:
-            hashed_password = auth.get_password_hash(settings.ADMIN_PASSWORD)
-            await crud.create_user(
-                db=db,
-                user=schemas.UserCreate(
-                    username=settings.ADMIN_USERNAME,
-                    email=settings.ADMIN_EMAIL,
-                    password=settings.ADMIN_PASSWORD,
-                ),
-                hashed_password=hashed_password
-            )
-            print("Admin user has been created.")
-        else:
-            print("Admin user already exists.")
-
-# Подключаем роутеры
+# Подключение всех роутеров
 app.include_router(main_router.router)
+app.include_router(users.router)
+app.include_router(briefs.router)
+
+# Корневой эндпоинт для проверки
+@app.get("/", tags=["Root"])
+async def root():
+    return {"message": "Welcome to the Interactive Brief API"}
