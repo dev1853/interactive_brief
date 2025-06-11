@@ -6,7 +6,7 @@ import { HomeIcon, PlusIcon, ArrowLeftOnRectangleIcon } from '@heroicons/react/2
 // Импорты всех наших компонентов
 import { getMainBrief } from './api/client';
 import Login from './components/Login';
-import Register from './components/Register';
+// import Register from './components/Register';
 import BriefList from './components/BriefList';
 import BriefForm from './components/BriefForm';
 import BriefBuilder from './components/BriefBuilder';
@@ -130,7 +130,7 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login setToken={handleSetToken} />} />
-      <Route path="/register" element={<Register />} />
+      {/* <Route path="/register" element={<Register />} /> */}
       <Route path="/thank-you" element={<ThankYouPage />} />
       
       {/* ВОТ ПРАВИЛЬНАЯ ЛОГИКА ДЛЯ ГЛАВНОЙ СТРАНИЦЫ */}

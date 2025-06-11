@@ -78,12 +78,12 @@ const Login = ({ setToken }) => {
             </button>
           </div>
         </form>
-        <p className="mt-2 text-center text-sm text-gray-600">
+        {/* <p className="mt-2 text-center text-sm text-gray-600">
           Еще не зарегистрированы?{' '}
           <Link to="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
             Создать аккаунт
           </Link>
-        </p>
+        </p> */}
       </div>
     </div>
   );
